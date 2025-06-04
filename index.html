@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forex Backtest Analyzer</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- D3.js CDN for charting -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        /* Custom styles for the chart tooltip if needed, or other minor adjustments */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Basic styling for D3 tooltip */
+        .d3-tooltip {
+            position: absolute;
+            text-align: center;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 0px;
+            border-radius: 4px;
+            pointer-events: none;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4 sm:p-8">
+    <header class="text-center mb-8">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-2">Forex Backtest Analyzer</h1>
+        <p class="text-lg text-gray-600">Analisis performa trading Anda</p>
+    </header>
+
+    <div class="max-w-6xl mx-auto bg-white p-6 rounded-xl shadow-lg">
+        <!-- Pengaturan Modal Awal -->
+        <section class="mb-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Pengaturan Modal</h2>
+            <div class="flex flex-col sm:flex-row items-center gap-4">
+                <label for="initialCapital" class="text-lg font-medium text-gray-700">
+                    Modal Awal:
+                </label>
+                <input
+                    type="number"
+                    id="initialCapital"
+                    value="10000000"
+                    class="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 text-lg"
+                    min="0"
+                />
+            </div>
+        </section>
+
+        <!-- Manajemen Data (Impor/Ekspor) -->
+        <section class="mb-8 p-4 bg-orange-50 rounded-lg border border-orange-200">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Manajemen Data</h2>
+            <div class="flex flex-col sm:flex-row gap-4">
+                <button
+                    id="exportDataBtn"
+                    class="flex-1 bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold shadow-md hover:bg-orange-700 transition duration-200"
+                >
+                    Ekspor Data (JSON)
+                </button>
+                <input
+                    type="file"
+                    id="importFileInput"
+                    accept=".json"
+                    class="hidden"
+                />
+                <button
+                    id="importDataBtn"
+                    class="flex-1 bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold shadow-md hover:bg-purple-700 transition duration-200"
+                >
+                    Impor Data (JSON)
+                </button>
+            </div>
+        </section>
+
+        <!-- Form Input Trade -->
+        <section class="mb-8 p-4 bg-green-50 rounded-lg border border-green-200">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Tambah Data Trade</h2>
+            <form id="tradeForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                    <label for="tradeDate" class="block text-sm font-medium text-gray-700 mb-1">Tanggal</label>
+                    <input
+                        type="date"
+                        id="tradeDate"
+                        name="date"
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="tradePair" class="block text-sm font-medium text-gray-700 mb-1">Nama Pair</label>
+                    <input
+                        type="text"
+                        id="tradePair"
+                        name="pair"
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
+                        placeholder="Contoh: EURUSD"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="tradeEntryPrice" class="block text-sm font-medium text-gray-700 mb-1">Harga Masuk</label>
+                    <input
+                        type="number"
+                        id="tradeEntryPrice"
+                        name="entryPrice"
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
+                        step="0.00001"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="tradeTakeProfit" class="block text-sm font-medium text-gray-700 mb-1">Take Profit (TP)</label>
+                    <input
+                        type="number"
+                        id="tradeTakeProfit"
+                        name="takeProfit"
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
+                        step="0.00001"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="tradeStopLoss" class="block text-sm font-medium text-gray-700 mb-1">Stop Loss (SL)</label>
+                    <input
+                        type="number"
+                        id="tradeStopLoss"
+                        name="stopLoss"
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
+                        step="0.00001"
+                        required
+                    />
+                </div>
+                <div>
+                    <label for="tradeOutcome" class="block text-sm font-medium text-gray-700 mb-1">Hasil</label>
+                    <select
+                        id="tradeOutcome"
+                        name="outcome"
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                        required
+                    >
+                        <option value="Profit">Profit</option>
+                        <option value="Loss">Loss</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2 lg:col-span-1 flex items-end">
+                    <button
+                        type="submit"
+                        class="w-full bg-emerald-600 text-white px-6 py-3 rounded-lg font-semibold shadow-md hover:bg-emerald-700 transition duration-200"
+                    >
+                        Tambahkan Trade
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Ringkasan Hasil -->
+        <section class="mb-8 p-4 bg-purple-50 rounded-lg border border-purple-200">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Ringkasan Hasil</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-lg" id="summaryResults">
+                <!-- Results will be injected here by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Grafik Equity/Growth -->
+        <section class="mb-8 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Grafik Pertumbuhan Modal</h2>
+            <div id="chartContainer" class="w-full h-80 flex items-center justify-center">
+                <svg id="equityChart" width="100%" height="100%"></svg>
+                <p id="chartPlaceholder" class="text-center text-gray-500 mt-10 hidden">Tambahkan setidaknya satu trade untuk melihat grafik.</p>
+            </div>
+        </section>
+
+        <!-- Daftar Trade -->
+        <section class="p-4 bg-red-50 rounded-lg border border-red-200">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Daftar Trade</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white rounded-lg shadow-md">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Tanggal</th>
+                            <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Pair</th>
+                            <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Harga Masuk</th>
+                            <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">TP</th>
+                            <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">SL</th>
+                            <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Hasil</th>
+                            <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Jumlah P/L</th>
+                            <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tradesTableBody">
+                        <!-- Trades will be injected here by JavaScript -->
+                    </tbody>
+                </table>
+                <p id="noTradesPlaceholder" class="text-center text-gray-500 mt-4 hidden">Belum ada trade yang ditambahkan.</p>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Global variables for data
+        let initialCapital = 10000000;
+        let trades = [];
+
+        // DOM elements
+        const initialCapitalInput = document.getElementById('initialCapital');
+        const tradeForm = document.getElementById('tradeForm');
+        const tradeDateInput = document.getElementById('tradeDate');
+        const tradePairInput = document.getElementById('tradePair');
+        const tradeEntryPriceInput = document.getElementById('tradeEntryPrice');
+        const tradeTakeProfitInput = document.getElementById('tradeTakeProfit');
+        const tradeStopLossInput = document.getElementById('tradeStopLoss');
+        const tradeOutcomeSelect = document.getElementById('tradeOutcome');
+        const summaryResultsDiv = document.getElementById('summaryResults');
+        const tradesTableBody = document.getElementById('tradesTableBody');
+        const chartSvg = document.getElementById('equityChart');
+        const chartPlaceholder = document.getElementById('chartPlaceholder');
+        const noTradesPlaceholder = document.getElementById('noTradesPlaceholder');
+        const exportDataBtn = document.getElementById('exportDataBtn');
+        const importDataBtn = document.getElementById('importDataBtn');
+        const importFileInput = document.getElementById('importFileInput');
+
+        // Fungsi untuk format mata uang Rupiah
+        const formatRupiah = (amount) => {
+            return new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+            }).format(amount);
+        };
+
+        // Fungsi untuk memuat data dari LocalStorage
+        const loadDataFromLocalStorage = () => {
+            const savedCapital = localStorage.getItem('forexBacktestInitialCapital');
+            if (savedCapital) {
+                initialCapital = parseFloat(savedCapital);
+                initialCapitalInput.value = initialCapital;
+            }
+            const savedTrades = localStorage.getItem('forexBacktestTrades');
+            if (savedTrades) {
+                const parsedTrades = JSON.parse(savedTrades);
+                // Ensure 'pair' field is added to old trades if they don't have it
+                trades = parsedTrades.map(trade => ({ ...trade, pair: trade.pair || 'N/A' }));
+            }
+        };
+
+        // Fungsi untuk menyimpan data ke LocalStorage
+        const saveDataToLocalStorage = () => {
+            localStorage.setItem('forexBacktestInitialCapital', initialCapital.toString());
+            localStorage.setItem('forexBacktestTrades', JSON.stringify(trades));
+        };
+
+        // Fungsi untuk menghitung dan menampilkan hasil backtest
+        const calculateAndDisplayResults = () => {
+            let currentEquity = initialCapital;
+            let totalProfitLoss = 0;
+            let maxProfitStreak = 0;
+            let currentProfitStreak = 0;
+            let maxLossStreak = 0;
+            let currentLossStreak = 0;
+            let largestProfit = 0;
+            let largestLoss = 0;
+            const equityData = [{ name: 'Mulai', equity: initialCapital }];
+
+            if (trades.length === 0) {
+                summaryResultsDiv.innerHTML = `
+                    <div class="bg-white p-3 rounded-md shadow-sm">
+                        <p class="font-medium text-gray-700">Modal Akhir:</p>
+                        <p class="font-bold text-green-600">${formatRupiah(initialCapital)}</p>
+                    </div>
+                    <div class="bg-white p-3 rounded-md shadow-sm">
+                        <p class="font-medium text-gray-700">Total Profit/Loss:</p>
+                        <p class="font-bold text-green-600">${formatRupiah(0)}</p>
+                    </div>
+                    <div class="bg-white p-3 rounded-md shadow-sm">
+                        <p class="font-medium text-gray-700">Profit Terbesar (sekali trade):</p>
+                        <p class="font-bold text-green-600">${formatRupiah(0)}</p>
+                    </div>
+                    <div class="bg-white p-3 rounded-md shadow-sm">
+                        <p class="font-medium text-gray-700">Loss Terbesar (sekali trade):</p>
+                        <p class="font-bold text-red-600">${formatRupiah(0)}</p>
+                    </div>
+                    <div class="bg-white p-3 rounded-md shadow-sm">
+                        <p class="font-medium text-gray-700">Profit Berulang Terpanjang:</p>
+                        <p class="font-bold text-blue-600">0</p>
+                    </div>
+                    <div class="bg-white p-3 rounded-md shadow-sm">
+                        <p class="font-medium text-gray-700">Loss Berulang Terpanjang:</p>
+                        <p class="font-bold text-blue-600">0</p>
+                    </div>
+                `;
+                tradesTableBody.innerHTML = '';
+                noTradesPlaceholder.classList.remove('hidden');
+                chartPlaceholder.classList.remove('hidden');
+                chartSvg.innerHTML = ''; // Clear chart
+                return;
+            }
+
+            trades.forEach((trade, index) => {
+                const entry = parseFloat(trade.entryPrice);
+                const tp = parseFloat(trade.takeProfit);
+                const sl = parseFloat(trade.stopLoss);
+                let tradeAmount = 0;
+
+                if (trade.outcome === 'Profit') {
+                    tradeAmount = Math.abs(tp - entry);
+                    currentProfitStreak++;
+                    currentLossStreak = 0;
+                    largestProfit = Math.max(largestProfit, tradeAmount);
+                } else { // outcome === 'Loss'
+                    tradeAmount = -Math.abs(entry - sl);
+                    currentLossStreak++;
+                    currentProfitStreak = 0;
+                    largestLoss = Math.max(largestLoss, Math.abs(tradeAmount));
+                }
+
+                currentEquity += tradeAmount;
+                totalProfitLoss += tradeAmount;
+
+                maxProfitStreak = Math.max(maxProfitStreak, currentProfitStreak);
+                maxLossStreak = Math.max(maxLossStreak, currentLossStreak);
+
+                equityData.push({ name: `${trade.date} (${trade.pair})`, equity: currentEquity });
+            });
+
+            // Update Summary Results
+            const finalCapital = initialCapital + totalProfitLoss;
+            summaryResultsDiv.innerHTML = `
+                <div class="bg-white p-3 rounded-md shadow-sm">
+                    <p class="font-medium text-gray-700">Modal Akhir:</p>
+                    <p class="font-bold ${finalCapital >= 0 ? 'text-green-600' : 'text-red-600'}">
+                        ${formatRupiah(finalCapital)}
+                    </p>
+                </div>
+                <div class="bg-white p-3 rounded-md shadow-sm">
+                    <p class="font-medium text-gray-700">Total Profit/Loss:</p>
+                    <p class="font-bold ${totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}">
+                        ${formatRupiah(totalProfitLoss)}
+                    </p>
+                </div>
+                <div class="bg-white p-3 rounded-md shadow-sm">
+                    <p class="font-medium text-gray-700">Profit Terbesar (sekali trade):</p>
+                    <p class="font-bold text-green-600">${formatRupiah(largestProfit)}</p>
+                </div>
+                <div class="bg-white p-3 rounded-md shadow-sm">
+                    <p class="font-medium text-gray-700">Loss Terbesar (sekali trade):</p>
+                    <p class="font-bold text-red-600">${formatRupiah(largestLoss)}</p>
+                </div>
+                <div class="bg-white p-3 rounded-md shadow-sm">
+                    <p class="font-medium text-gray-700">Profit Berulang Terpanjang:</p>
+                    <p class="font-bold text-blue-600">${maxProfitStreak > 0 ? maxProfitStreak : '0'}</p>
+                </div>
+                <div class="bg-white p-3 rounded-md shadow-sm">
+                    <p class="font-medium text-gray-700">Loss Berulang Terpanjang:</p>
+                    <p class="font-bold text-blue-600">${maxLossStreak > 0 ? maxLossStreak : '0'}</p>
+                </div>
+            `;
+
+            // Update Trades Table
+            tradesTableBody.innerHTML = ''; // Clear existing rows
+            trades.forEach((trade) => {
+                const tradeAmount = trade.outcome === 'Profit'
+                    ? Math.abs(trade.takeProfit - trade.entryPrice)
+                    : -Math.abs(trade.entryPrice - trade.stopLoss);
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-200 hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="py-3 px-4 text-sm text-gray-800">${trade.date}</td>
+                    <td class="py-3 px-4 text-sm text-gray-800">${trade.pair}</td>
+                    <td class="py-3 px-4 text-sm text-gray-800">${trade.entryPrice}</td>
+                    <td class="py-3 px-4 text-sm text-gray-800">${trade.takeProfit}</td>
+                    <td class="py-3 px-4 text-sm text-gray-800">${trade.stopLoss}</td>
+                    <td class="py-3 px-4 text-sm font-medium ${trade.outcome === 'Profit' ? 'text-green-600' : 'text-red-600'}">
+                        ${trade.outcome}
+                    </td>
+                    <td class="py-3 px-4 text-sm font-medium ${tradeAmount >= 0 ? 'text-green-600' : 'text-red-600'}">
+                        ${formatRupiah(tradeAmount)}
+                    </td>
+                    <td class="py-3 px-4 text-sm">
+                        <button
+                            onclick="deleteTrade(${trade.id})"
+                            class="bg-red-500 text-white px-3 py-1 rounded-md text-xs hover:bg-red-600 transition duration-200"
+                        >
+                            Hapus
+                        </button>
+                    </td>
+                `;
+                tradesTableBody.appendChild(row);
+            });
+
+            if (trades.length > 0) {
+                noTradesPlaceholder.classList.add('hidden');
+            } else {
+                noTradesPlaceholder.classList.remove('hidden');
+            }
+
+            // Update Chart
+            drawChart(equityData);
+        };
+
+        // Fungsi untuk menggambar grafik menggunakan D3.js
+        const drawChart = (data) => {
+            chartSvg.innerHTML = ''; // Clear previous chart
+            chartPlaceholder.classList.add('hidden'); // Hide placeholder if data exists
+
+            if (data.length <= 1) {
+                chartPlaceholder.classList.remove('hidden');
+                return;
+            }
+
+            const margin = { top: 20, right: 30, bottom: 60, left: 80 }; // Increased bottom margin for x-axis labels
+            const width = chartSvg.clientWidth - margin.left - margin.right;
+            const height = chartSvg.clientHeight - margin.top - margin.bottom;
+
+            const svg = d3.select(chartSvg)
+                .attr("width", chartSvg.clientWidth)
+                .attr("height", chartSvg.clientHeight)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // X scale
+            const xScale = d3.scalePoint()
+                .domain(data.map(d => d.name))
+                .range([0, width])
+                .padding(0.5); // Add padding for point scale
+
+            // Y scale
+            const yScale = d3.scaleLinear()
+                .domain([d3.min(data, d => d.equity) * 0.95, d3.max(data, d => d.equity) * 1.05]) // Add some padding to Y-axis
+                .range([height, 0]);
+
+            // X-axis
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xScale))
+                .selectAll("text")
+                .attr("transform", "rotate(-45)")
+                .style("text-anchor", "end")
+                .attr("dx", "-.8em")
+                .attr("dy", ".15em");
+
+            // Y-axis
+            svg.append("g")
+                .call(d3.axisLeft(yScale).tickFormat(formatRupiah));
+
+            // Line generator
+            const line = d3.line()
+                .x(d => xScale(d.name))
+                .y(d => yScale(d.equity));
+
+            // Append the line path
+            svg.append("path")
+                .datum(data)
+                .attr("fill", "none")
+                .attr("stroke", "#8884d8")
+                .attr("stroke-width", 2)
+                .attr("d", line);
+
+            // Add circles for data points
+            svg.selectAll("circle")
+                .data(data)
+                .enter()
+                .append("circle")
+                .attr("cx", d => xScale(d.name))
+                .attr("cy", d => yScale(d.equity))
+                .attr("r", 5)
+                .attr("fill", "#8884d8")
+                .on("mouseover", function(event, d) {
+                    d3.select(this).attr("r", 8).attr("fill", "#6a5acd"); // Enlarge on hover
+                    tooltip.style("opacity", 1)
+                           .html(`<strong>${d.name}</strong><br>${formatRupiah(d.equity)}`)
+                           .style("left", (event.pageX + 10) + "px")
+                           .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this).attr("r", 5).attr("fill", "#8884d8"); // Revert on mouseout
+                    tooltip.style("opacity", 0);
+                });
+
+            // Tooltip div
+            const tooltip = d3.select("body").append("div")
+                .attr("class", "d3-tooltip")
+                .style("opacity", 0);
+        };
+
+
+        // Event Listeners
+        initialCapitalInput.addEventListener('change', (e) => {
+            initialCapital = parseFloat(e.target.value) || 0;
+            saveDataToLocalStorage();
+            calculateAndDisplayResults();
+        });
+
+        tradeForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newTrade = {
+                id: Date.now(),
+                date: tradeDateInput.value,
+                pair: tradePairInput.value,
+                entryPrice: parseFloat(tradeEntryPriceInput.value),
+                takeProfit: parseFloat(tradeTakeProfitInput.value),
+                stopLoss: parseFloat(tradeStopLossInput.value),
+                outcome: tradeOutcomeSelect.value,
+            };
+
+            // Basic validation
+            if (!newTrade.date || !newTrade.pair || isNaN(newTrade.entryPrice) || isNaN(newTrade.takeProfit) || isNaN(newTrade.stopLoss)) {
+                alert('Semua bidang harus diisi dengan nilai yang valid.');
+                return;
+            }
+
+            trades.push(newTrade);
+            saveDataToLocalStorage();
+            calculateAndDisplayResults();
+
+            // Reset form
+            tradeDateInput.value = '';
+            tradePairInput.value = '';
+            tradeEntryPriceInput.value = '';
+            tradeTakeProfitInput.value = '';
+            tradeStopLossInput.value = '';
+            tradeOutcomeSelect.value = 'Profit';
+        });
+
+        // Fungsi global untuk menghapus trade (dipanggil dari tombol di tabel)
+        window.deleteTrade = (id) => {
+            if (confirm('Apakah Anda yakin ingin menghapus trade ini?')) {
+                trades = trades.filter(trade => trade.id !== id);
+                saveDataToLocalStorage();
+                calculateAndDisplayResults();
+            }
+        };
+
+        // Event listener untuk tombol Ekspor Data
+        exportDataBtn.addEventListener('click', () => {
+            const dataToExport = {
+                initialCapital: initialCapital,
+                trades: trades,
+            };
+            const jsonString = JSON.stringify(dataToExport, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `forex_backtest_data_${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            alert('Data berhasil diekspor sebagai file JSON.');
+        });
+
+        // Event listener untuk tombol Impor Data (memicu input file)
+        importDataBtn.addEventListener('click', () => {
+            importFileInput.click();
+        });
+
+        // Event listener untuk perubahan input file Impor
+        importFileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (importedData.initialCapital !== undefined && Array.isArray(importedData.trades)) {
+                        initialCapital = parseFloat(importedData.initialCapital);
+                        initialCapitalInput.value = initialCapital;
+                        // Ensure imported trades also have the 'pair' field
+                        trades = importedData.trades.map(trade => ({ ...trade, pair: trade.pair || 'N/A' }));
+                        saveDataToLocalStorage();
+                        calculateAndDisplayResults();
+                        alert('Data berhasil diimpor!');
+                    } else {
+                        alert('Format file JSON tidak valid. Pastikan berisi "initialCapital" dan "trades".');
+                    }
+                } catch (error) {
+                    console.error('Error parsing JSON:', error);
+                    alert('Gagal mengimpor data. Pastikan file adalah JSON yang valid.');
+                }
+            };
+            reader.readAsText(file);
+            // Clear the file input value to allow importing the same file again if needed
+            event.target.value = '';
+        });
+
+        // Inisialisasi aplikasi saat DOM selesai dimuat
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDataFromLocalStorage();
+            calculateAndDisplayResults();
+        });
+    </script>
+</body>
+</html>
